@@ -108,6 +108,8 @@ def indicador_isg(dger: List[Dict], dload: List[Dict]) -> Tuple[pd.DataFrame, di
     reserva = {t: dload[t]['reserva'] for t in periodos}
     ordem_isg = is_g(dger, dload)
     isg = on_off(dger, ordem_isg, dload)
+    # print("ISG")
+    # print(isg)
     z_isg = gerar_z_fixo(isg)
 
     # resolução para isg

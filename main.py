@@ -25,8 +25,8 @@ from power_nlp.heuristicas import (indicador_isa, indicador_isb, indicador_isc, 
 def main():
     """Função principal que orquestra a resolução do problema """
 
-    # caminho = "data/UC_4UTES.m"  # ajuste conforme necessário
-    caminho = "data/UC_10GER.m"  # ajuste conforme necessário?
+    caminho = "data/UC_4UTES.m"  # ajuste conforme necessário
+    # caminho = "data/UC_10GER.m"  # ajuste conforme necessário?
     dados = ler_m(caminho)
     dger = dados['DGER']
     dload = dados[ 'DLOAD']
@@ -89,6 +89,8 @@ def main():
     # print(pg_otimo)
 
     print(df_custos)
+
+    print(df_forca_bruta)
 
     # pprint(dados)
 
