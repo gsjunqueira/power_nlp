@@ -19,6 +19,7 @@ Autor: Giovani Santiago Junqueira
 __author__ = "Giovani Santiago Junqueira"
 
 from itertools import combinations
+from collections import defaultdict
 from typing import List, Dict, Set, Tuple
 from time import time
 import pandas as pd
@@ -47,19 +48,23 @@ def comb_viaveis(
     combinacoes_por_tempo = {}
 
     for t, carga_info in enumerate(cargas):
+        contador = 0
         carga = carga_info["carga"]
         reserva = carga_info["reserva"]
         candidatos = []
 
         for k in range(1, len(usinas) + 1):
+            contador_candidato = 0
+            contador = 0
             for subset in combinations(usinas, k):
                 soma_min = sum(mapa[g]["pgmin"] for g in subset)
                 soma_max = sum(mapa[g]["pgmax"] for g in subset)
-
+                contador += 1
                 if soma_min <= carga and soma_max >= carga + reserva:
                     candidatos.append(set(subset))
-
+                    contador_candidato += 1
         combinacoes_por_tempo[t] = candidatos
+
     return combinacoes_por_tempo
 
 
@@ -168,6 +173,7 @@ def forca_bruta(geradores: List[Dict], cargas: List[Dict]) -> Tuple[pd.DataFrame
     reserva = {t: cargas[t]['reserva'] for t in periodos}
 
     combinacoes = comb_viaveis(geradores, cargas)
+    # print(participacao(combinacoes))
     z_bruto = z_bruto_completo(combinacoes)
     pesquisa = []
 
@@ -188,3 +194,32 @@ def forca_bruta(geradores: List[Dict], cargas: List[Dict]) -> Tuple[pd.DataFrame
     }
 
     return df_fob, tempos
+
+def participacao(
+    combinacoes_por_tempo: Dict[int, List[Set[str]]]
+) -> Tuple[Dict[int, Dict[str, int]], Dict[int, int]]:
+    """
+    Conta quantas vezes cada usina participa de soluções viáveis em cada tempo
+    e também retorna o número total de soluções viáveis por tempo.
+
+    Args:
+        combinacoes_por_tempo (Dict[int, List[Set[str]]]): Mapeamento de tempo para lista
+        de subconjuntos viáveis de geradores.
+
+    Returns:
+        Tuple:
+            - Dict[int, Dict[str, int]]: Contagem de participações por UG por tempo.
+            - Dict[int, int]: Quantidade total de soluções viáveis por tempo.
+    """
+    participacoes = {}
+    solucoes_viaveis = {}
+
+    for t, combinacoes in combinacoes_por_tempo.items():
+        contagem = defaultdict(int)
+        for conjunto in combinacoes:
+            for g in conjunto:
+                contagem[g] += 1
+        participacoes[t] = dict(contagem)
+        solucoes_viaveis[t] = len(combinacoes)
+
+    return participacoes, solucoes_viaveis

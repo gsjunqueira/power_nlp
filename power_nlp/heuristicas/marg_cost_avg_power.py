@@ -97,8 +97,8 @@ def indicador_isb(dger: List[Dict], dload: List[Dict]) -> Tuple[pd.DataFrame, di
     reserva = {t: dload[t]['reserva'] for t in periodos}
     ordem_isb = priorizar_isb(dger)
     isb = on_off(dger, ordem_isb, dload)
-    print("ISB")
-    print(isb)
+    # print("ISB")
+    # print(isb)
     z_isb = gerar_z_fixo(isb)
 
     # resolução para isb
