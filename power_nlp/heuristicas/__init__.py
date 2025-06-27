@@ -16,24 +16,30 @@ Autor: Giovani Santiago Junqueira
 
 __author__ = "Giovani Santiago Junqueira"
 
-from .utils import on_off, gerar_z_fixo, resultados_dataframe
-from .avg_full_load_cost import indicador_isa
-from .marg_cost_avg_power import indicador_isb
-from .marg_cost_full_load import indicador_isc
-from .avg_cost_opt_point import indicador_isd
-from .multi_gen_cost_penalty import indicador_isg
-from .heuristic_lagrange import indicador_ils
+from .utils import on_off, on_off_refinado, gerar_z_fixo, resultados_dataframe
+from .avg_full_load_cost import indicador_isa, indic_isa_ref
+from .marg_cost_avg_power import indicador_isb, indic_isb_ref
+from .marg_cost_full_load import indicador_isc, indic_isc_ref
+from .avg_cost_opt_point import indicador_isd, indic_isd_ref
+from .multi_gen_cost_penalty import indicador_isg, indic_isg_ref
+from .heuristic_lagrange import indicador_ils, indic_ils_ref
 from .relevance_dispatch import indicador_itr
 from .forca_bruta import forca_bruta
 
 __all__ = [
-    "on_off", "gerar_z_fixo", "resultados_dataframe",
+    "on_off", "on_off_refinado", "gerar_z_fixo", "resultados_dataframe",
     "indicador_isa",
+    "indic_isa_ref",
     "indicador_isb",
+    "indic_isb_ref",
     "indicador_isc",
+    "indic_isc_ref",
     "indicador_isd",
+    "indic_isd_ref",
     "indicador_isg",
+    "indic_isg_ref",
     "indicador_ils",
+    "indic_ils_ref",
     "indicador_itr",
     "forca_bruta"
 ]

@@ -21,7 +21,7 @@ __author__ = "Giovani Santiago Junqueira"
 from typing import List, Dict, Tuple
 from time import time
 import pandas as pd
-from power_nlp.heuristicas import on_off, gerar_z_fixo, resultados_dataframe
+from power_nlp.heuristicas import on_off, on_off_refinado, gerar_z_fixo, resultados_dataframe
 from power_nlp.model_nlp import DespachoNLP
 
 
@@ -177,6 +177,64 @@ def indicador_isd(dger: List[Dict], dload: List[Dict]) -> Tuple[pd.DataFrame, di
     pg_otimo = gerar_pg_otimo(dger, dload)
     ordem_isd = priorizar_isd(dger, pg_otimo)
     isd = on_off(dger, ordem_isd, dload)
+    z_isd = gerar_z_fixo(isd)
+
+    # resolução para isd
+    sol_isd = time()
+    print('Calculando o índice ISD')
+    m_isd = DespachoNLP(ute, periodos, a, b, c, pgmin, pgmax, demanda, reserva, z_isd)
+    m_isd.solve()
+    resul_isd, fob_isd = m_isd.get_resultados()
+    custo_isd = m_isd.get_custos_tempo()
+    df_isd = resultados_dataframe(resul_isd)
+    fim = time()
+
+    tempos = {
+        "priorizacao": sol_isd-inicio_isd,
+        "solucao": fim - sol_isd,
+        "isd": ordem_isd
+    }
+
+    return df_isd, custo_isd, fob_isd, tempos
+
+def indic_isd_ref(dger: List[Dict], dload: List[Dict]) -> Tuple[pd.DataFrame, dict, float, dict]:
+    """
+    Aplica a heurística ISD para priorização do despacho de geradores térmicos.
+
+    Etapas:
+    - Resolve o despacho com todas as unidades ligadas para obter Pgt
+    - Calcula o índice ISD por gerador e período
+    - Prioriza os geradores com menor ISD
+    - Gera z_fixo com base nessa priorização
+    - Resolve o modelo de despacho com z_fixo
+    - Extrai resultados e tempos de execução
+
+    Args:
+        dger (List[Dict]): Dados dos geradores.
+        dload (List[Dict]): Dados de carga e reserva por período.
+
+    Returns:
+        Tuple:
+            - pd.DataFrame: Resultados de geração por período.
+            - dict: Custos por período.
+            - float: Valor da função objetivo (FOB).
+            - dict: Tempos de execução {'priorizacao', 'solucao'}.
+    """
+    # indicador isd
+    inicio_isd = time()
+    periodos = list(range(len(dload)))
+    ute = [g['id'] for g in dger]
+    a = {g['id']: g['a'] for g in dger}
+    b = {g['id']: g['b'] for g in dger}
+    c = {g['id']: g['c'] for g in dger}
+    pgmin = {g['id']: g['pgmin'] for g in dger}
+    pgmax = {g['id']: g['pgmax'] for g in dger}
+    demanda =  {t: dload[t]['carga'] for t in periodos}
+    reserva = {t: dload[t]['reserva'] for t in periodos}
+    print('Calculando o PG_Ótimo')
+    pg_otimo = gerar_pg_otimo(dger, dload)
+    ordem_isd = priorizar_isd(dger, pg_otimo)
+    isd = on_off_refinado(dger, ordem_isd, dload)
     z_isd = gerar_z_fixo(isd)
 
     # resolução para isd

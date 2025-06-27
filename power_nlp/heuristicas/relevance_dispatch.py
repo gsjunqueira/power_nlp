@@ -229,6 +229,6 @@ def indicador_itr(dger: List[Dict], dload: List[Dict], ordem: Dict
         "itr": ordem_tr
     }
 
-    heatmap(contagem_tr)
+    # heatmap(contagem_tr)
 
     return df_itr, custo_itr, fob_itr, tempos

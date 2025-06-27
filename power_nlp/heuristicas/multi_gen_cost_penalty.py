@@ -20,7 +20,7 @@ __author__ = "Giovani Santiago Junqueira"
 from typing import List, Dict, Tuple
 from time import time
 import pandas as pd
-from power_nlp.heuristicas import on_off, gerar_z_fixo, resultados_dataframe
+from power_nlp.heuristicas import on_off, on_off_refinado, gerar_z_fixo, resultados_dataframe
 from power_nlp.model_nlp import DespachoNLP
 
 
@@ -54,10 +54,15 @@ def is_g(ger: List[dict], load: List[dict]):
                 fob = g['a'] + g['b'] * g['pgmax'] + g['c'] * g['pgmax'] ** 2 + (
                     demanda - g['pgmax']) * 1000
             else:
-                fob = demanda * 1000
+                fob = g['a'] + demanda * 1000
             resultados[t][g['id']] = fob
 
-    def prioridade(custos_fob: dict) -> dict:
+    a = {g['id']: g['a'] for g in ger}
+    b = {g['id']: g['b'] for g in ger}
+    c = {g['id']: g['c'] for g in ger}
+    pgmin = {g['id']: g['pgmin'] for g in ger}
+
+    def prioridade(custos_fob: dict, a, b, c, pgmin) -> dict:
         """
         Ordena os geradores por período com base no menor custo FOB estimado.
 
@@ -69,10 +74,18 @@ def is_g(ger: List[dict], load: List[dict]):
         """
         prioridade = {}
         for t, custos in custos_fob.items():
-            prioridade[t] = sorted(custos, key=custos.get)
+            # prioridade[t] = sorted(custos, key=custos.get)
+            prioridade[t] = sorted(
+                custos.keys(),
+                key=lambda g: (
+                    custos[g],  # custo estimado FOB
+                    a[g] + b[g] * pgmin[g] + c[g] * pgmin[g] ** 2,  # custo real mínimo
+                    pgmin[g]  # flexibilidade
+                )
+            )
         return prioridade
 
-    return prioridade(resultados)
+    return prioridade(resultados, a, b, c, pgmin)
 
 def indicador_isg(dger: List[Dict], dload: List[Dict]) -> Tuple[pd.DataFrame, dict, float, dict]:
     """
@@ -108,8 +121,64 @@ def indicador_isg(dger: List[Dict], dload: List[Dict]) -> Tuple[pd.DataFrame, di
     reserva = {t: dload[t]['reserva'] for t in periodos}
     ordem_isg = is_g(dger, dload)
     isg = on_off(dger, ordem_isg, dload)
-    # print("ISG")
-    # print(isg)
+    print("ISG")
+    print(isg)
+    z_isg = gerar_z_fixo(isg)
+
+    # resolução para isg
+    sol_isg = time()
+    print('Calculando o índice ISG')
+    m_isg = DespachoNLP(ute, periodos, a, b, c, pgmin, pgmax, demanda, reserva, z_isg)
+    m_isg.solve()
+    resul_isg, fob_isg = m_isg.get_resultados()
+    custo_isg = m_isg.get_custos_tempo()
+    df_isg = resultados_dataframe(resul_isg)
+    fim = time()
+
+    tempos = {
+        "priorizacao": sol_isg-inicio_isg,
+        "solucao": fim - sol_isg,
+        "isg": ordem_isg
+    }
+
+    return df_isg, custo_isg, fob_isg, tempos
+
+def indic_isg_ref(dger: List[Dict], dload: List[Dict]) -> Tuple[pd.DataFrame, dict, float, dict]:
+    """
+    Aplica a heurística ISG para priorização do despacho de geradores térmicos.
+
+    Etapas:
+    - Calcula o índice ISG com base em custo estimado por gerador e período
+    - Gera a matriz binária de ativação z_fixo conforme a ordem de prioridade
+    - Resolve o modelo de despacho não linear (DespachoNLP)
+    - Retorna os resultados do modelo, custos por período, FOB total e tempos
+
+    Args:
+        dger (List[Dict]): Dados dos geradores térmicos (id, a, b, c, pgmin, pgmax).
+        dload (List[Dict]): Dados de carga e reserva por período.
+
+    Returns:
+        Tuple:
+            - pd.DataFrame: Resultados da geração por unidade e período.
+            - dict: Custos por período (ex: custo total, variável etc.).
+            - float: Valor da função objetivo (FOB).
+            - dict: Tempos de execução {'priorizacao', 'solucao'}.
+    """
+    # indicador giovani
+    inicio_isg = time()
+    periodos = list(range(len(dload)))
+    ute = [g['id'] for g in dger]
+    a = {g['id']: g['a'] for g in dger}
+    b = {g['id']: g['b'] for g in dger}
+    c = {g['id']: g['c'] for g in dger}
+    pgmin = {g['id']: g['pgmin'] for g in dger}
+    pgmax = {g['id']: g['pgmax'] for g in dger}
+    demanda =  {t: dload[t]['carga'] for t in periodos}
+    reserva = {t: dload[t]['reserva'] for t in periodos}
+    ordem_isg = is_g(dger, dload)
+    isg = on_off_refinado(dger, ordem_isg, dload)
+    print("ISGX")
+    print(isg)
     z_isg = gerar_z_fixo(isg)
 
     # resolução para isg

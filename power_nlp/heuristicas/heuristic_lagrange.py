@@ -21,7 +21,7 @@ from typing import List, Dict, Tuple
 from collections import defaultdict
 from time import time
 import pandas as pd
-from power_nlp.heuristicas import on_off, gerar_z_fixo, resultados_dataframe
+from power_nlp.heuristicas import on_off, on_off_refinado, gerar_z_fixo, resultados_dataframe
 from power_nlp.model_nlp import DespachoNLP
 
 def lagrangianos(geradores: dict, dload: list) -> dict:
@@ -126,6 +126,63 @@ def indicador_ils(dger: List[Dict], dload: List[Dict]) -> Tuple[pd.DataFrame, di
     reserva = {t: dload[t]['reserva'] for t in periodos}
     ordem_ls = lagrangianos(dger, dload)
     ils = on_off(dger, ordem_ls, dload)
+    z_ils = gerar_z_fixo(ils)
+
+    # resolução para ils
+    sol_ils = time()
+    print('Calculando o índice ILS')
+    m_ils = DespachoNLP(ute, periodos, a, b, c, pgmin, pgmax, demanda, reserva, z_ils)
+    m_ils.solve()
+    resul_ils, fob_ils = m_ils.get_resultados()
+    custo_ils = m_ils.get_custos_tempo()
+    df_ils = resultados_dataframe(resul_ils)
+    fim = time()
+
+    tempos = {
+        "priorizacao": sol_ils-inicio_ils,
+        "solucao": fim - sol_ils,
+        "ils": ordem_ls 
+    }
+
+    return df_ils, custo_ils, fob_ils, tempos
+
+def indic_ils_ref(dger: List[Dict], dload: List[Dict]) -> Tuple[pd.DataFrame, dict, float, dict]:
+    """
+    Aplica a heurística ILS (Índice de Lagrange por Sensibilidade) para priorização do
+    despacho de geradores térmicos com base na sensibilidade associada às variáveis x[g, t].
+
+    Etapas:
+    - Executa o modelo com ODF ativado e z_fixo = 0 para todos os geradores
+    - Extrai os multiplicadores de Lagrange associados às restrições x[g, t]
+    - Prioriza os geradores com maior sensibilidade (lambda mais alto)
+    - Gera o vetor z_fixo com base nessa ordem de prioridade
+    - Resolve o modelo de despacho com essa configuração
+    - Retorna os resultados, custos, valor da função objetivo (FOB) e tempos
+
+    Args:
+        dger (List[Dict]): Lista com dados dos geradores térmicos.
+        dload (List[Dict]): Lista com dados de carga e reserva por período.
+
+    Returns:
+        Tuple:
+            - pd.DataFrame: Resultados da geração por período e unidade.
+            - dict: Custos por período (ex: custo total, variável etc.).
+            - float: Valor da função objetivo (FOB).
+            - dict: Tempos de execução com as chaves 'priorizacao' e 'solucao'.
+    """
+    # indicador sensibilidade de lagrange
+    inicio_ils = time()
+    periodos = list(range(len(dload)))
+    ute = [g['id'] for g in dger]
+    a = {g['id']: g['a'] for g in dger}
+    b = {g['id']: g['b'] for g in dger}
+    c = {g['id']: g['c'] for g in dger}
+    pgmin = {g['id']: g['pgmin'] for g in dger}
+    pgmax = {g['id']: g['pgmax'] for g in dger}
+    demanda =  {t: dload[t]['carga'] for t in periodos}
+    reserva = {t: dload[t]['reserva'] for t in periodos}
+    ordem_ls = lagrangianos(dger, dload)
+    ils = on_off_refinado(dger, ordem_ls, dload)
     z_ils = gerar_z_fixo(ils)
 
     # resolução para ils
